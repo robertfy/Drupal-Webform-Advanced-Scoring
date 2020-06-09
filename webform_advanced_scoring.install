@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * @file
+ */
+
+/**
+ *
+ */
+function webform_advanced_scoring_schema() {
+  $schema['webform_advanced_scoring_values_scores_pair'] = array(
+    'description' => 'Values-Scores pair for each components of a webform.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'The Values-Scores Pair ID',
+  // Serial makes it INT AUTO_INCREMENT. :) #HappyTimes.
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'Referenced node ID of webform',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'cid' => array(
+        'description' => 'Referenced component ID of webform',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'value' => array(
+        'description' => 'The value of a particular component.',
+        'type' => 'text',
+      ),
+      'score' => array(
+        'description' => 'Score for a value of the referenced webform component',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'score_range' => array(
+        'description' => 'Score percentage/range for a value of the referenced webform component to be added/subtracted from the orignal value',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'cond_cid' => array(
+        'description' => 'Referenced a conditional component ID of webform',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'cond_value' => array(
+        'description' => 'Serialized storage of cid & its value for another Component.',
+        'type' => 'text',
+      ),
+
+    ),
+    'primary key' => array('id'),
+  );
+
+  $schema['webform_advanced_scoring_enabled_webforms'] = array(
+    'description' => 'List of webforms on which Scoring is enabled.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'The Item ID',
+  // Serial makes it INT AUTO_INCREMENT. :) #HappyTimes.
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'Referenced node ID of webform',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'enabled' => array(
+        'description' => '0 = disabled, 1 = enabled. ',
+        'type' => 'int',
+        'size' => 'tiny',
+        'default' => 0,
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+
+      ),
+      'cid' => array(
+        'description' => 'Component ID of hidden scoring field of the webform',
+        'type' => 'int',
+        'default' => 9999,
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  return $schema;
+}

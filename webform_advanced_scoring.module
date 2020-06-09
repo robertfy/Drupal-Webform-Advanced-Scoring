@@ -1,0 +1,247 @@
+<?php
+
+/**
+ * @file
+ */
+
+
+module_load_include('inc', 'webform_advanced_scoring', 'includes/forms/rule.view');
+
+/**
+ * Implements hook_help().
+ */
+
+ 
+/**
+ *
+ */
+function webform_advanced_scoring_help($path, $arg) {
+  $output = '';
+  switch ($path) {
+    case 'admin/help#webform_advanced_scoring':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Adds a hidden field to a webform to save overall score for a submission when Webform Scoring is enabled.') . '</p>';
+      $output .= '<p>' . t('This module is particularly useful if you want to rate/score the submissions of users. For eg: you are using webforms to create a survey, and you want to get the list of potential users/clients/people you wish to interact with.') . '</p>';
+      $output .= '<p>' . t('This module allows defining scores for a different type of inputs by the user. For eg: User is asked a question like "Which city they live in?" and based on user\'s answer we score them and so on.') . '</p>';
+      $output .= '<p>' . t('Configure Scores per field for a webform by <br/> Goto Webform\'s view page > Webform Tab > Scoring Rules.') . '</p>';
+      return $output;
+  }
+}
+
+/**
+ * Implement hook_menu.
+ *
+ * @return array
+ */
+function webform_advanced_scoring_menu() {
+  $items = array();
+
+
+ /* $items['dependent_dropdown2'] = array(
+    'title' => 'Dependent dropdown',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array(
+      'webform_advanced_scoring_manage_rules',
+    ),
+    'access callback' => TRUE,
+    'weight' => 4,
+    'file' => 'includes/forms/rule.view.inc',
+    'type' => MENU_LOCAL_TASK,
+  );*/
+
+  //module_load_include('inc', 'webform_advanced_scoring', 'includes/forms/rule.view');
+  $items['node/%webform_menu/webform/advanced-scoring-rules'] = array(
+    'title' => 'Advanced Scoring Rules',
+    'page callback' => 'webform_advanced_scoring_scoring_rules',
+    'page arguments' => array(1, 4, 5),
+    'access callback' => 'webform_results_access',
+    'access arguments' => array(1),
+    'weight' => 6,
+    'file' => 'includes/pages/rule.manage.inc',
+    //'file' => 'includes/forms/rule.view.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['node/%webform_menu/webform-results/advanced-scores'] = array(
+    'title' => 'Scores',
+    'page callback' => 'webform_advanced_scoring_scores',
+    'page arguments' => array(1),
+    'access callback' => 'webform_results_access',
+    'access arguments' => array(1),
+    'weight' => 6,
+    'file' => 'includes/pages/score.view.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Get the settings for the current webform.
+ *
+ * @param mixed $nid
+ *
+ * @return mixed
+ */
+function _webform_advanced_score_enabled($nid) {
+  $enabled = &drupal_static(__FUNCTION__ . '_' . $nid);
+
+  if (empty($enabled['loaded'])) {
+    $enabled['loaded'] = TRUE;
+    $query = db_select('webform_advanced_scoring_enabled_webforms', 'a');
+    $query->fields('a');
+    $query->condition('a.nid', $nid);
+    $enabled['result'] = $query->execute()->fetch();
+  }
+
+  return $enabled['result'];
+}
+
+/**
+ * Calculate the score for the result of a submission.
+ *
+ * @param mixed $node
+ * @param mixed $data
+ *
+ * @return bool|array
+ */
+function webform_advanced_scoring_calculate_score($node, $data) {
+  $score_enabled = _webform_advanced_score_enabled($node->nid);
+  // Scoring is not enabled for this node.
+  // Note that this function may return a boolean. Thus return FALSE.
+  if ($score_enabled == NULL) {
+    return FALSE;
+  }
+  if ($score_enabled->enabled && _webform_advanced_score_has_cid($node, $score_enabled->cid)) {
+    $query = db_select('webform_advanced_scoring_values_scores_pair', 'a');
+    $query->fields('a');
+    $query->condition('a.nid', $node->webform['nid'], '=');
+    $result = $query->execute()->fetchAll(PDO::FETCH_ASSOC);
+
+    $score_key = array();
+    $cid_list = array();
+    $conditions = array();
+    //print_r($result);exit;
+    foreach ($result as $item) {
+      //$pairs = array();
+      //print "Item: ";
+      //print_r($item);
+      //$score_key[$item['cid']]['cid'][] = $item['cid'];
+      array_push($cid_list, $item['cid']);
+      //$lines = explode("\n", trim($item['value_score_pair']));
+      //foreach ($lines as $com_val) {
+        $condition = array();
+        //$com_val = explode("|", $item);
+        $condition['cid'] = $item['cid'];
+        $condition['value'] = $item['value'];
+        $condition['score'] = $item['score'];
+        $condition['score_range'] = $item['score_range'];
+        $condition['cond_cid'] = $item['cond_cid'];
+        $condition['cond_val'] = trim($item['cond_val']);
+        array_push($conditions, $condition);
+      //}
+      //print "Conditions:";
+      //print_r($conditions);
+
+      //$item['conditions'] = $conditions;
+      $score_key[$item['cid']][] = $item;
+      //$score_key[$item['cid']]['pairs'] = $pairs;
+    }
+    $total_score = 0;
+    $range = 0;
+    $todal_unserialized = array();
+    foreach ($data as $key => $value) {
+      if (!is_array($value)) {
+        $value = array($value);
+      }
+      
+      //print "<br /><br /><br />Key: " . $key;
+      if (in_array($key, $cid_list)) {
+        //print "inside if";
+        foreach ($score_key[$key] as $condition) {
+        /*  print "<br /><br />val:" . $value[0] ."<Br />";
+          print "cid_val:" . $data[$condition['cid']][0] . "<br />";
+          print "-----" . "<br />";
+          print "pair value:" . $condition['value'] ."<Br />";
+          print "score:" . $condition['score'] . "<br />";
+          print "cid:" . $condition['cond_cid'] . "<br />";
+          print "cid_cond_val:" . $condition['cond_value'] . "<br />";
+          print "RANGE:" . $condition['score_range'] . "<br />";
+          //print "first condition: " . $value[0] ."== " . $condition['value'] . " && "  . !$condition['cid'] ."<br />";
+          //var_dump($data[$condition['cid']][0]);
+          //var_dump($condition['cid_val']);
+          print "second condition: " ;
+          print "a" . ($value[0] == $condition['value'] );//$data[$condition['cid']][0];
+          print "b" . ($data[$condition['cid']][0] == $condition['cid_val']);// " . $condition['cid_val'] . "<br />" ;
+*/
+          
+          if ( 
+            (($value[0] == $condition['value']) &&  !$condition['cond_cid']) 
+        ||  (($value[0] == $condition['value']) && ($data[$condition['cond_cid']][0] == $condition['cond_value']) )
+            ) {
+            //print "Entered <br />";
+              if($condition['score_range']) {
+                $range += $condition['score_range'];
+              }
+              $total_score += $condition['score'];
+              $todal_unserialized[] = array($node->webform['components'][$condition['cid']]['name'], $condition['score'], $condition['score_range']);
+          }
+        }
+      }
+    }
+    //print_r(array($total_score, $range, $todal_unserialized));
+    //exit;
+    return array($total_score, $range, $todal_unserialized);
+  }
+
+  return FALSE;
+}
+
+
+
+/**
+ * Store a quiz result upon submission presave.
+ *
+ * @param mixed $node
+ * @param mixed $submission
+ */
+function webform_advanced_scoring_webform_submission_presave($node, &$submission) {
+  $total_score = webform_advanced_scoring_calculate_score($node, $submission->data);
+
+  if ($total_score !== FALSE) {
+    $score_enabled = _webform_advanced_score_enabled($node->nid);
+    //print_r($total_score);
+    //exit;
+    // Scoring is not enabled for this node.
+    if ($score_enabled != NULL) {
+      //$submission->data[$score_enabled->cid][0] = $total_score[0];
+      //$data = serialize($total_score[2]);
+      //$submission->data[$score_enabled->cid][1] = $data;
+      //$submission->data[$score_enabled->cid][2] = $total_score[1];
+
+      $data = serialize($total_score);
+      $submission->data[$score_enabled->cid][0] = $data;
+    }
+  }
+}
+
+/**
+ * Check if the webform contains a certain component.
+ *
+ * @param mixed $node
+ * @param mixed $cid
+ *
+ * @return mixed
+ */
+function _webform_advanced_score_has_cid($node, $cid) {
+  if (empty($node->webform)) {
+    return FALSE;
+  }
+
+  if (empty($node->webform['components'][$cid]['name'])) {
+    return FALSE;
+  }
+
+  return $node->webform['components'][$cid]['name'];
+}

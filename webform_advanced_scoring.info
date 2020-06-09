@@ -1,0 +1,16 @@
+name = Webform Advanced Scoring
+core=7.x
+package=Webform
+description = Provides an advanced scoring feature to each submission based on their choices. 
+version = 1.0-dev
+
+dependencies[] = webform
+files[] = includes/forms/rule.view.inc
+files[] = includes/pages/rule.manage.inc
+
+; Information added by Drupal.org packaging script on 2017-08-17
+version = "7.x-1.0"
+core = "7.x"
+project = "webform_advanced_scoring"
+datestamp = "1589188620"
+
